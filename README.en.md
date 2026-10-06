@@ -82,6 +82,17 @@ Menu `[3] Rollback` restores all hardlinks as independent Bilibili copies (conte
 - **Players with only one client installed (Official or Bilibili) don't need this tool**: there is no second client to share files with, so there is no duplication to remove. The tool targets the case where both are installed.
 - Evaluate the risks and comply with the relevant terms of service yourself.
 
+## Channel switch tool (one client, two servers — high risk)
+
+This repo also ships **`ArknightsChannelSwitch.ps1`**: keep **one game body** and switch between Official / Bilibili login by replacing the login-channel layer (saving the second 26 GB body).
+
+- Entry: `Start-ChannelSwitch.bat` (or `ArknightsChannelSwitch-*.bat` in Releases)
+- First run: menu `[1]` builds channel packs (compares the two clients and packs the differing channel files into `E:\AK-Channel\official` and `bilibili`)
+- Then: `[2]`/`[3]` one-click switch Official/Bilibili, `[4]` launch the game
+- Prerequisite: you must first obtain the other server's channel pack (~500–700 MB, extracted from an installed client or copied from elsewhere)
+
+> ⚠ **High risk**: this modifies client files (including exe/assembly), is not officially supported, may violate the ToS, may trip anti-cheat, and may break after major updates. Use at your own risk.
+
 ## License
 
 [MIT](LICENSE)

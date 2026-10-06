@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-07
+
+### Added
+- New tool `ArknightsChannelSwitch.ps1` (+ `Start-ChannelSwitch.bat`, single-file builds) to keep one game body and switch between Official/Bilibili login by swapping the channel layer.
+
 ## [1.0.4] - 2026-10-07
 
 ### Changed

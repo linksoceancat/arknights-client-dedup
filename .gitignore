@@ -1,6 +1,7 @@
 # runtime data produced by the tool
 data/
 config.json
+channel-config.json
 
 # logs
 *.log
