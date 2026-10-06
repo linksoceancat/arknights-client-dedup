@@ -79,6 +79,7 @@ Menu `[3] Rollback` restores all hardlinks as independent Bilibili copies (conte
 - The tool only **reads file contents** for comparison and then creates hardlinks; it never modifies game content.
 - Because only identical content is linked, content-based anti-cheat is unaffected.
 - Prefer running only one client at a time (with hardlinks, an in-place write to a shared file could theoretically affect the other — extremely unlikely).
+- **Players with only one client installed (Official or Bilibili) don't need this tool**: there is no second client to share files with, so there is no duplication to remove. The tool targets the case where both are installed.
 - Evaluate the risks and comply with the relevant terms of service yourself.
 
 ## License

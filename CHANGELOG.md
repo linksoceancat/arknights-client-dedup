@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-10-07
+
+### Changed
+- Friendlier error when only one client (Official or Bilibili) is installed, explaining that dedup needs both.
+
 ## [1.0.3] - 2026-10-07
 
 ### Added

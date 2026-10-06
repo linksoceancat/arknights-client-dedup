@@ -17,7 +17,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$Version      = '1.0.3'
+$Version      = '1.0.4'
 $Root         = $PSScriptRoot
 $DataDir      = Join-Path $Root 'data'
 $ConfigPath   = Join-Path $Root 'config.json'
@@ -118,7 +118,7 @@ function Resolve-Clients {
     if (-not $bili) { $bili = $found.Bilibili }
   }
 
-  if ($Prompt -or -not $official -or -not $bili) {
+  if ($Prompt -or (-not $official -and -not $bili)) {
     Write-Host ''
     Write-Host ('  官服当前: {0}' -f ($(if ($official) { $official } else { '(未找到)' })))
     Write-Host ('  B服 当前: {0}' -f ($(if ($bili) { $bili } else { '(未找到)' })))
@@ -133,11 +133,17 @@ function Resolve-Clients {
     }
   }
 
-  if (-not ($official -and (Test-Path -LiteralPath (Join-Path $official 'Arknights.exe')))) {
-    throw '官服路径无效：未找到 Arknights.exe'
+  $officialOk = $official -and (Test-Path -LiteralPath (Join-Path $official 'Arknights.exe'))
+  $biliOk     = $bili -and (Test-Path -LiteralPath (Join-Path $bili 'Arknights.exe'))
+
+  if (-not $officialOk -and -not $biliOk) {
+    throw '未检测到任何《明日方舟》PC 客户端。本工具需要在同一台电脑上同时安装「官服」和「B服」两个客户端，才能做文件去重。'
   }
-  if (-not ($bili -and (Test-Path -LiteralPath (Join-Path $bili 'Arknights.exe')))) {
-    throw 'B服路径无效：未找到 Arknights.exe'
+  if (-not $officialOk) {
+    throw '未找到官服客户端。本工具需要「官服 + B服」两个客户端都已安装才能去重；如果只装了一个服，磁盘上本来就没有重复内容，无需使用本工具。'
+  }
+  if (-not $biliOk) {
+    throw '未找到 B服 客户端。本工具需要「官服 + B服」两个客户端都已安装才能去重；如果只装了一个服，磁盘上本来就没有重复内容，无需使用本工具。'
   }
   $driveErr = Get-SameDriveError $official $bili
   if ($driveErr) { throw $driveErr }
@@ -329,6 +335,7 @@ catch {
   Write-Host ("错误: " + $_.Exception.Message) -ForegroundColor Red
   exit 1
 }
+
 
 
 
