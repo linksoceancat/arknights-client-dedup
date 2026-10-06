@@ -17,18 +17,19 @@
 #>
 [CmdletBinding()]
 param(
-  [ValidateSet('Menu', 'Setup', 'Switch', 'Status', 'Launch')]
+  [ValidateSet('Menu', 'Setup', 'Switch', 'Status', 'Launch', 'Import')]
   [string]$Action = 'Menu',
   [ValidateSet('Official', 'Bilibili')]
   [string]$Channel = 'Official',
   [ValidateSet('Official', 'Bilibili')]
-  [string]$Keep = ''
+  [string]$Keep = '',
+  [string]$PackSource = ''
 )
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$Version = '1.0.1'
+$Version = '1.1.0'
 $Root = $PSScriptRoot
 $ConfigPath = Join-Path $Root 'channel-config.json'
 $LogPath = Join-Path $Root 'channel-run.log'
@@ -202,12 +203,17 @@ function Invoke-Setup {
     Save-TextList (Join-Path $packRoot 'different.txt') $cmp.Different
   }
   else {
-    # 只有一个客户端：至少把当前客户端自己的渠道层打包（用于日后还原）
-    $only = if ($official) { $official } else { $bili }
-    $onlyChannel = if ($official) { 'Official' } else { 'Bilibili' }
-    $onlyPack = if ($official) { $officialPack } else { $bilibiliPack }
-    foreach ($dir in @($officialPack, $bilibiliPack)) { if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null } }
-    Write-Log ("只检测到一个客户端({0})，无法比对；请在装好另一个客户端后重新运行本菜单的 Setup。" -f $onlyChannel)
+    # 只有一个客户端
+    $hasImported = (Test-Path -LiteralPath (Join-Path $packRoot 'bilibili')) -or (Test-Path -LiteralPath (Join-Path $packRoot 'official'))
+    if ($hasImported) {
+      Write-Log ('检测到已有渠道包(导入): {0}，直接使用。' -f $packRoot)
+    }
+    else {
+      Write-Host '⚠ 只检测到一个客户端，且未发现已导入的渠道包。' -ForegroundColor Yellow
+      Write-Host '  可选：用菜单 [6] 导入渠道包（从另一台电脑拷 AK-Channel 文件夹过来），' -ForegroundColor Yellow
+      Write-Host '  或安装另一个客户端后重新 Setup。' -ForegroundColor Yellow
+      Write-Host ''
+    }
   }
 
   $cfg = [PSCustomObject]@{
@@ -222,6 +228,58 @@ function Invoke-Setup {
   Write-Log '渠道包构建完成，配置已保存。'
   Write-Host ''
   Write-Host ('现在可以删除另一个客户端来省空间（手动），或用 [切换] 菜单登录不同渠道。') -ForegroundColor Cyan
+}
+
+function Invoke-Import {
+  param([string]$PackSource)
+
+  $found = Find-Clients
+  if (-not $found.Official -and -not $found.Bilibili) {
+    throw '未检测到任何《明日方舟》PC 客户端。请先安装官服或B服客户端。'
+  }
+  $official = $found.Official
+  $bili = $found.Bilibili
+
+  $base = $official
+  $baseChannel = 'Official'
+  if (-not $official -and $bili) { $base = $bili; $baseChannel = 'Bilibili' }
+  elseif ($official -and $bili -and $Keep -eq 'Bilibili') { $base = $bili; $baseChannel = 'Bilibili' }
+
+  $packRoot = Join-Path ([System.IO.Path]::GetPathRoot($base)) 'AK-Channel'
+
+  if (-not $PackSource) { $PackSource = $packRoot }
+
+  $hasOfficial = Test-Path -LiteralPath (Join-Path $PackSource 'official')
+  $hasBilibili = Test-Path -LiteralPath (Join-Path $PackSource 'bilibili')
+  if (-not $hasOfficial -and -not $hasBilibili) {
+    throw "导入源无效：在 `"$PackSource`" 下未找到 official/ 或 bilibili/ 子目录。请指定包含渠道包的文件夹（整包 AK-Channel）。"
+  }
+
+  $srcFull = (Get-Item -LiteralPath $PackSource -Force).FullName.TrimEnd('\')
+  $dstFull = $packRoot.TrimEnd('\')
+  if ($srcFull -ne $dstFull) {
+    Write-Log ('复制渠道包: {0} -> {1}' -f $srcFull, $dstFull)
+    if (-not (Test-Path -LiteralPath $packRoot)) { New-Item -ItemType Directory -Path $packRoot -Force | Out-Null }
+    Copy-Item -LiteralPath (Join-Path $PackSource '*') -Destination $packRoot -Recurse -Force
+  }
+
+  if (-not (Test-Path -LiteralPath (Join-Path $packRoot 'officialOnly.txt')) -and
+      -not (Test-Path -LiteralPath (Join-Path $packRoot 'bilibiliOnly.txt'))) {
+    Write-Log '警告：缺少 officialOnly.txt / bilibiliOnly.txt 清单，切换时将不会删除另一渠道的独占文件（可能残留多余文件，但不影响登录）。'
+  }
+
+  $cfg = [PSCustomObject]@{
+    Base = $base
+    BaseChannel = $baseChannel
+    PackRoot = $packRoot
+    OfficialPack = Join-Path $packRoot 'official'
+    BilibiliPack = Join-Path $packRoot 'bilibili'
+    Current = $baseChannel
+  }
+  Save-Config $cfg
+  Write-Log '渠道包导入完成，配置已保存。'
+  Write-Host ''
+  Write-Host '提示：可用 [2]/[3] 切换渠道，[4] 启动游戏。' -ForegroundColor Cyan
 }
 
 function Invoke-Switch {
@@ -316,6 +374,7 @@ function Show-Menu {
   Write-Host '  [3] 切换到 B服'
   Write-Host '  [4] 启动游戏'
   Write-Host '  [5] 查看状态'
+  Write-Host '  [6] 导入渠道包（从另一台电脑/文件夹）'
   Write-Host '  [0] 退出'
   Write-Host ''
   Write-Host '  ⚠ 改客户端文件有封号风险，请自行评估' -ForegroundColor Yellow
@@ -332,6 +391,7 @@ function Start-Menu {
       '3' { try { Invoke-Switch -Target 'Bilibili' } catch { Write-Host ("错误: " + $_.Exception.Message) -ForegroundColor Red }; Read-Host '按回车返回' | Out-Null }
       '4' { try { Invoke-Launch } catch { Write-Host ("错误: " + $_.Exception.Message) -ForegroundColor Red }; Read-Host '按回车返回' | Out-Null }
       '5' { try { Show-Status } catch { Write-Host ("错误: " + $_.Exception.Message) -ForegroundColor Red }; Read-Host '按回车返回' | Out-Null }
+      '6' { try { $src = Read-Host '渠道包文件夹路径(直接回车=本机默认位置 E:\AK-Channel 等)'; Invoke-Import -PackSource $src } catch { Write-Host ("错误: " + $_.Exception.Message) -ForegroundColor Red }; Read-Host '按回车返回' | Out-Null }
       '0' { return }
       default { }
     }
@@ -344,6 +404,7 @@ try {
     'Switch'  { Invoke-Switch -Target $Channel }
     'Status'  { Show-Status }
     'Launch'  { Invoke-Launch }
+    'Import'  { Invoke-Import -PackSource $PackSource }
     'Menu'    { Start-Menu }
   }
 }
@@ -351,5 +412,6 @@ catch {
   Write-Host ("错误: " + $_.Exception.Message) -ForegroundColor Red
   exit 1
 }
+
 
 

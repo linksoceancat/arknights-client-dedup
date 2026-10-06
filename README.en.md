@@ -90,6 +90,7 @@ This repo also ships **`ArknightsChannelSwitch.ps1`**: keep **one game body** an
 - First run: menu `[1]` builds channel packs (compares the two clients and packs the differing channel files into `E:\AK-Channel\official` and `bilibili`)
 - Then: `[2]`/`[3]` one-click switch Official/Bilibili, `[4]` launch the game
 - Prerequisite: you must first obtain the other server's channel pack (~500–700 MB, extracted from an installed client or copied from elsewhere)
+- **A machine that never installed Bilibili**: menu `[6] Import channel pack`, copy the whole `AK-Channel` folder (with `official/`, `bilibili/` and the manifests) from another machine — no need to download the Bilibili client
 
 > ⚠ **High risk**: this modifies client files (including exe/assembly), is not officially supported, may violate the ToS, may trip anti-cheat, and may break after major updates. Use at your own risk.
 

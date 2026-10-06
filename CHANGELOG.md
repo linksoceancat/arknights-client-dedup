@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-07
+
+### Added
+- Channel switch: "Import channel pack" — a machine that never installed Bilibili can now import an `AK-Channel` pack folder (copied from another machine) and switch servers without downloading the Bilibili client.
+
 ## [1.1.1] - 2026-10-07
 
 ### Fixed
