@@ -17,6 +17,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
+$Version      = '1.0.1'
 $Root         = $PSScriptRoot
 $DataDir      = Join-Path $Root 'data'
 $ConfigPath   = Join-Path $Root 'config.json'
@@ -277,7 +278,7 @@ function Show-Status {
     else { $own += $f.Length; $ownCount++ }
   }
   Write-Host ''
-  Write-Host '================= 当前状态 =================' -ForegroundColor Cyan
+  Write-Host ('================= 当前状态 (v{0}) =================' -f $Version) -ForegroundColor Cyan
   Write-Host ('官服路径 : {0}' -f $Official)
   Write-Host ('B服 路径 : {0}' -f $Bilibili)
   Write-Host ('官服占用 : {0}' -f (Format-Size $guSum))
@@ -291,7 +292,7 @@ function Show-Status {
 function Show-Menu {
   Clear-Host
   Write-Host '================================================' -ForegroundColor Cyan
-  Write-Host '     明日方舟 官服 / B服 客户端去重工具' -ForegroundColor Cyan
+  Write-Host ('     明日方舟 官服 / B服 客户端去重工具  v{0}' -f $Version) -ForegroundColor Cyan
   Write-Host '================================================' -ForegroundColor Cyan
   Write-Host '  [1] 扫描并去重（节省磁盘空间）'
   Write-Host '  [2] 查看当前状态'
@@ -328,4 +329,5 @@ catch {
   Write-Host ("错误: " + $_.Exception.Message) -ForegroundColor Red
   exit 1
 }
+
 
