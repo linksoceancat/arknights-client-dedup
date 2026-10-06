@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-10-07
+
+### Added
+- Single-file build `ArknightsDedup-standalone.bat` (self-extracting) — download one file and double-click.
+- `build-standalone.ps1` to generate the single-file build.
+
 ## [1.0.1] - 2026-10-07
 
 ### Added

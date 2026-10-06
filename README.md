@@ -26,7 +26,14 @@
 
 ## 使用方法
 
-1. 下载/克隆本仓库。
+### 方式一：单文件版（最简单，推荐）
+从 [Releases](https://github.com/linksoceancat/arknights-client-dedup/releases/latest) 下载 **`ArknightsDedup-standalone.bat`**，放到任意文件夹双击运行即可。
+整个工具都在这一个文件里，首次运行会在同目录自动解压出 `ArknightsDedup.ps1` 并启动，之后按菜单操作。
+
+> 若系统提示 SmartScreen/脚本安全，选择“仍要运行”即可（脚本未签名，属正常现象）。
+
+### 方式二：完整版
+1. 下载/克隆本仓库（或 Release 里的 zip 并解压）。
 2. 双击 **`Start.bat`**。
 3. 按菜单操作：
    - `[1] 扫描并去重`
@@ -49,6 +56,7 @@ powershell -ExecutionPolicy Bypass -File .\ArknightsDedup.ps1 -Action Rollback
 ```
 ArknightsDedup.ps1   主程序（菜单 + 去重/回滚/状态）
 Start.bat            一键启动入口
+build-standalone.ps1 打包：把主程序内嵌成单文件 .bat（输出到 dist/）
 config.json          客户端路径（首次运行自动生成）
 data/
   manifest.csv       比对结果（同路径同大小文件是否一致）

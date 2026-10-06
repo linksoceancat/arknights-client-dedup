@@ -17,7 +17,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$Version      = '1.0.1'
+$Version      = '1.0.2'
 $Root         = $PSScriptRoot
 $DataDir      = Join-Path $Root 'data'
 $ConfigPath   = Join-Path $Root 'config.json'
@@ -329,5 +329,6 @@ catch {
   Write-Host ("错误: " + $_.Exception.Message) -ForegroundColor Red
   exit 1
 }
+
 
 

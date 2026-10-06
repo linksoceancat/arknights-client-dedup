@@ -26,7 +26,14 @@ Result: both clients stay intact and can be launched normally; actual disk usage
 
 ## Usage
 
-1. Clone or download this repository.
+### Option 1: Single-file build (easiest, recommended)
+Download **`ArknightsDedup-standalone.bat`** from [Releases](https://github.com/linksoceancat/arknights-client-dedup/releases/latest) and double-click it.
+The whole tool is in that one file; on first run it self-extracts `ArknightsDedup.ps1` next to itself and starts. Then use the menu.
+
+> If Windows shows a SmartScreen/script warning, choose "Run anyway" (the script is unsigned, which is normal).
+
+### Option 2: Full build
+1. Clone this repository (or download and extract the zip from Releases).
 2. Double-click **`Start.bat`**.
 3. Use the menu:
    - `[1] Analyze & dedup`
@@ -49,6 +56,7 @@ On first run, if auto-detection fails, it will ask for the two **game root folde
 ```
 ArknightsDedup.ps1   Main program (menu + dedup/rollback/status)
 Start.bat            One-click launcher
+build-standalone.ps1 Packaging: embeds the main program into a single-file .bat (outputs to dist/)
 config.json          Client paths (created on first run)
 data/
   manifest.csv       Comparison result (whether same-path files are identical)
