@@ -1,0 +1,6 @@
+# runtime data produced by the tool
+data/
+config.json
+
+# logs
+*.log
