@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-07
+
+### Fixed
+- Channel switch now prunes empty directories left behind after removing the other channel's files (e.g. empty `BLPlatform64`).
+- Bilibili client detection now checks an actual file (`BLPlatform64\PCGamePlatform.exe`) instead of the directory.
+
 ## [1.1.0] - 2026-10-07
 
 ### Added

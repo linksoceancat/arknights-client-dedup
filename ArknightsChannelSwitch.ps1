@@ -28,7 +28,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$Version = '1.0.0'
+$Version = '1.0.1'
 $Root = $PSScriptRoot
 $ConfigPath = Join-Path $Root 'channel-config.json'
 $LogPath = Join-Path $Root 'channel-run.log'
@@ -56,7 +56,7 @@ function Test-GameRoot {
   if (-not (Test-Path -LiteralPath (Join-Path $Path 'Arknights.exe'))) { return $false }
   switch ($Kind) {
     'Official' { return (Test-Path -LiteralPath (Join-Path $Path 'hgsdk.dll')) }
-    'Bilibili' { return (Test-Path -LiteralPath (Join-Path $Path 'BLPlatform64')) -or (Test-Path -LiteralPath (Join-Path $Path 'PCGameSDK.dll')) }
+    'Bilibili' { return (Test-Path -LiteralPath (Join-Path $Path 'BLPlatform64\PCGamePlatform.exe')) -or (Test-Path -LiteralPath (Join-Path $Path 'PCGameSDK.dll')) }
     default    { return $true }
   }
 }
@@ -248,6 +248,17 @@ function Invoke-Switch {
     if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue }
   }
 
+  foreach ($rel in $toDelete) {
+    $dir = Split-Path -Parent (Join-Path $base $rel)
+    while ($dir -and $dir -ne $base -and (Test-Path -LiteralPath $dir)) {
+      if (@(Get-ChildItem -LiteralPath $dir -Force -ErrorAction SilentlyContinue).Count -eq 0) {
+        Remove-Item -LiteralPath $dir -Force -ErrorAction SilentlyContinue
+        $dir = Split-Path -Parent $dir
+      }
+      else { break }
+    }
+  }
+
   Write-Log ('切换到 {0}：覆盖渠道文件...' -f $Target)
   $files = Get-ChildItem -LiteralPath $pack -Recurse -File -Force
   $i = 0
@@ -287,7 +298,7 @@ function Show-Status {
   Write-Host ('B服包    : {0}' -f $cfg.BilibiliPack)
   $exe = Join-Path $cfg.Base 'Arknights.exe'
   if (Test-Path -LiteralPath $exe) {
-    $isBili = (Test-Path -LiteralPath (Join-Path $cfg.Base 'BLPlatform64')) -or (Test-Path -LiteralPath (Join-Path $cfg.Base 'PCGameSDK.dll'))
+    $isBili = (Test-Path -LiteralPath (Join-Path $cfg.Base 'BLPlatform64\PCGamePlatform.exe')) -or (Test-Path -LiteralPath (Join-Path $cfg.Base 'PCGameSDK.dll'))
     $actual = if ($isBili) { 'Bilibili' } else { 'Official' }
     Write-Host ('实际渠道 : {0}（按当前渠道文件判断）' -f $actual)
   }
@@ -340,4 +351,5 @@ catch {
   Write-Host ("错误: " + $_.Exception.Message) -ForegroundColor Red
   exit 1
 }
+
 
