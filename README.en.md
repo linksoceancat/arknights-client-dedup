@@ -94,6 +94,8 @@ This repo also ships **`ArknightsChannelSwitch.ps1`**: keep **one game body** an
 
 > ⚠ **High risk**: this modifies client files (including exe/assembly), is not officially supported, may violate the ToS, may trip anti-cheat, and may break after major updates. Use at your own risk.
 
+> Note: the channel-switch config is stored in one fixed per-machine location `%LOCALAPPDATA%\ArknightsChannelSwitch\` (independent of where the tool sits), and a `.ak-channel.json` marker is written into the managed client folder. Run Setup once and use a single copy; don't re-run Setup after switching.
+
 ## License
 
 [MIT](LICENSE)

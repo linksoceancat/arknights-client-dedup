@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-09
+
+### Changed
+- Channel-switch config / log / hash-cache are now stored in one per-machine location: `%LOCALAPPDATA%\ArknightsChannelSwitch\`. Running the tool from a different folder (e.g. a copy on the Desktop) no longer creates a conflicting second config.
+
+### Added
+- A base marker file `.ak-channel.json` is written into the managed client folder, recording the current channel.
+- Setup now reuses the previously saved base folder instead of re-detecting, preventing the official / bilibili folders from getting "crossed" after a switch.
+
 ## [1.2.0] - 2026-10-07
 
 ### Added

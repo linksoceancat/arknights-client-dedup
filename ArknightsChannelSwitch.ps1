@@ -29,10 +29,51 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$Version = '1.1.0'
+$Version = '1.3.0'
 $Root = $PSScriptRoot
-$ConfigPath = Join-Path $Root 'channel-config.json'
-$LogPath = Join-Path $Root 'channel-run.log'
+$ConfigDir = Join-Path $env:LOCALAPPDATA 'ArknightsChannelSwitch'
+if (-not (Test-Path -LiteralPath $ConfigDir)) { New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null }
+$ConfigPath = Join-Path $ConfigDir 'channel-config.json'
+$LogPath = Join-Path $ConfigDir 'channel-run.log'
+$HashCachePath = Join-Path $ConfigDir 'channel-hash-cache.json'
+
+# 从旧版(与脚本同目录)迁移配置与缓存
+foreach ($pair in @(
+    @{ Old = (Join-Path $Root 'channel-config.json'); New = $ConfigPath },
+    @{ Old = (Join-Path $Root 'channel-hash-cache.json'); New = $HashCachePath }
+  )) {
+  if ((Test-Path -LiteralPath $pair.Old) -and -not (Test-Path -LiteralPath $pair.New)) {
+    Copy-Item -LiteralPath $pair.Old -Destination $pair.New -Force
+  }
+}
+
+$script:HashCache = @{}
+$script:HashHits = 0
+
+function Load-HashCache {
+  $script:HashCache = @{}
+  if (Test-Path -LiteralPath $HashCachePath) {
+    try {
+      $arr = Get-Content -LiteralPath $HashCachePath -Raw -Encoding UTF8 | ConvertFrom-Json
+      foreach ($e in $arr) { $script:HashCache[[string]$e.k] = [string]$e.h }
+    } catch { $script:HashCache = @{} }
+  }
+}
+
+function Save-HashCache {
+  $arr = $script:HashCache.GetEnumerator() | ForEach-Object { [PSCustomObject]@{ k = $_.Key; h = $_.Value } }
+  $arr | ConvertTo-Json | Set-Content -LiteralPath $HashCachePath -Encoding UTF8
+}
+
+function Get-FileHashCached {
+  param([string]$Path)
+  $fi = Get-Item -LiteralPath $Path -Force
+  $key = '{0}|{1}|{2}' -f $fi.FullName, $fi.Length, $fi.LastWriteTimeUtc.Ticks
+  if ($script:HashCache.ContainsKey($key)) { $script:HashHits++; return $script:HashCache[$key] }
+  $h = (Get-FileHash -LiteralPath $Path -Algorithm MD5).Hash
+  $script:HashCache[$key] = $h
+  return $h
+}
 
 function Write-Log {
   param([string]$Message)
@@ -89,6 +130,34 @@ function Save-Config {
   $Obj | ConvertTo-Json | Set-Content -LiteralPath $ConfigPath -Encoding UTF8
 }
 
+function Get-ActualChannel {
+  param([string]$GameRoot)
+  if ((Test-Path -LiteralPath (Join-Path $GameRoot 'BLPlatform64\PCGamePlatform.exe')) -or
+      (Test-Path -LiteralPath (Join-Path $GameRoot 'PCGameSDK.dll'))) { return 'Bilibili' }
+  if (Test-Path -LiteralPath (Join-Path $GameRoot 'hgsdk.dll')) { return 'Official' }
+  return 'Unknown'
+}
+
+function Get-BaseMarkerPath {
+  param([string]$GameRoot)
+  Join-Path $GameRoot '.ak-channel.json'
+}
+
+function Save-BaseMarker {
+  param([string]$GameRoot, [string]$Channel)
+  [PSCustomObject]@{ Managed = $true; Channel = $Channel; Updated = (Get-Date).ToString('s') } |
+    ConvertTo-Json | Set-Content -LiteralPath (Get-BaseMarkerPath $GameRoot) -Encoding UTF8
+}
+
+function Get-BaseMarker {
+  param([string]$GameRoot)
+  $p = Get-BaseMarkerPath $GameRoot
+  if (Test-Path -LiteralPath $p) {
+    try { return (Get-Content -LiteralPath $p -Raw -Encoding UTF8 | ConvertFrom-Json) } catch { return $null }
+  }
+  return $null
+}
+
 function Assert-NotRunning {
   $p = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match 'Arknights|Launcher' }
   if ($p) {
@@ -100,11 +169,15 @@ function Assert-NotRunning {
 function Get-RelFiles {
   param([string]$GameRoot)
   Get-ChildItem -LiteralPath $GameRoot -Recurse -File -Force -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -ne '.ak-channel.json' } |
     ForEach-Object { [PSCustomObject]@{ Rel = $_.FullName.Substring($GameRoot.Length + 1); Size = $_.Length } }
 }
 
 function Invoke-Compare {
   param([string]$Official, [string]$Bilibili)
+
+  Load-HashCache
+  $script:HashHits = 0
   $a = Get-RelFiles $Official
   $b = Get-RelFiles $Bilibili
   $amap = @{}; foreach ($x in $a) { $amap[$x.Rel] = $x.Size }
@@ -117,10 +190,12 @@ function Invoke-Compare {
   foreach ($x in $a) {
     if (-not $bmap.ContainsKey($x.Rel)) { continue }
     if ($bmap[$x.Rel] -ne $x.Size) { $different += $x.Rel; continue }
-    $ha = (Get-FileHash -LiteralPath (Join-Path $Official $x.Rel) -Algorithm MD5).Hash
-    $hb = (Get-FileHash -LiteralPath (Join-Path $Bilibili $x.Rel) -Algorithm MD5).Hash
+    $ha = Get-FileHashCached (Join-Path $Official $x.Rel)
+    $hb = Get-FileHashCached (Join-Path $Bilibili $x.Rel)
     if ($ha -ne $hb) { $different += $x.Rel }
   }
+  Save-HashCache
+  Write-Log ('  哈希缓存命中 {0} 次' -f $script:HashHits)
   return @{ OfficialOnly = $officialOnly; BilibiliOnly = $bilibiliOnly; Different = $different }
 }
 
@@ -164,17 +239,28 @@ function Invoke-Setup {
     Write-Host ''
   }
 
-  # 选择保留哪一个作为“主体”
+  # 选择保留哪一个作为“主体”：优先沿用已保存的 Base（避免切换后按标记识别而交叉）
+  $existingCfg = Load-Config
+  $existingBase = $null
+  if ($existingCfg -and $existingCfg.Base -and (Test-Path -LiteralPath (Join-Path $existingCfg.Base 'Arknights.exe'))) {
+    $existingBase = $existingCfg.Base
+  }
+
   $base = $official
-  $baseChannel = 'Official'
-  if ($official -and $bili) {
-    if ($Keep -eq 'Bilibili') { $base = $bili; $baseChannel = 'Bilibili' }
+  if ($existingBase) {
+    $base = $existingBase
+    Write-Host ('  已保存的主体: {0}（沿用，不再重新识别）' -f $base) -ForegroundColor Cyan
+  }
+  elseif ($official -and $bili) {
+    if ($Keep -eq 'Bilibili') { $base = $bili }
     elseif (-not $Keep) {
       $in = Read-Host '保留哪个客户端作为游戏主体？[1]官服(默认) [2]B服'
-      if ($in -eq '2') { $base = $bili; $baseChannel = 'Bilibili' }
+      if ($in -eq '2') { $base = $bili }
     }
   }
-  elseif ($bili) { $base = $bili; $baseChannel = 'Bilibili' }
+  elseif ($bili -and -not $official) { $base = $bili }
+
+  $baseChannel = Get-ActualChannel $base
 
   $packRoot = Join-Path ([System.IO.Path]::GetPathRoot($base)) 'AK-Channel'
   $officialPack = Join-Path $packRoot 'official'
@@ -225,6 +311,7 @@ function Invoke-Setup {
     Current = $baseChannel
   }
   Save-Config $cfg
+  Save-BaseMarker -GameRoot $base -Channel $baseChannel
   Write-Log '渠道包构建完成，配置已保存。'
   Write-Host ''
   Write-Host ('现在可以删除另一个客户端来省空间（手动），或用 [切换] 菜单登录不同渠道。') -ForegroundColor Cyan
@@ -240,10 +327,18 @@ function Invoke-Import {
   $official = $found.Official
   $bili = $found.Bilibili
 
+  $existingCfg = Load-Config
+  $existingBase = $null
+  if ($existingCfg -and $existingCfg.Base -and (Test-Path -LiteralPath (Join-Path $existingCfg.Base 'Arknights.exe'))) {
+    $existingBase = $existingCfg.Base
+  }
+
   $base = $official
-  $baseChannel = 'Official'
-  if (-not $official -and $bili) { $base = $bili; $baseChannel = 'Bilibili' }
-  elseif ($official -and $bili -and $Keep -eq 'Bilibili') { $base = $bili; $baseChannel = 'Bilibili' }
+  if ($existingBase) { $base = $existingBase }
+  elseif (-not $official -and $bili) { $base = $bili }
+  elseif ($official -and $bili -and $Keep -eq 'Bilibili') { $base = $bili }
+
+  $baseChannel = Get-ActualChannel $base
 
   $packRoot = Join-Path ([System.IO.Path]::GetPathRoot($base)) 'AK-Channel'
 
@@ -277,6 +372,7 @@ function Invoke-Import {
     Current = $baseChannel
   }
   Save-Config $cfg
+  Save-BaseMarker -GameRoot $base -Channel $baseChannel
   Write-Log '渠道包导入完成，配置已保存。'
   Write-Host ''
   Write-Host '提示：可用 [2]/[3] 切换渠道，[4] 启动游戏。' -ForegroundColor Cyan
@@ -329,6 +425,7 @@ function Invoke-Switch {
 
   $cfg.Current = $Target
   Save-Config $cfg
+  Save-BaseMarker -GameRoot $base -Channel $Target
   Write-Log ('切换完成，当前渠道: {0}' -f $Target)
 }
 
@@ -356,10 +453,12 @@ function Show-Status {
   Write-Host ('B服包    : {0}' -f $cfg.BilibiliPack)
   $exe = Join-Path $cfg.Base 'Arknights.exe'
   if (Test-Path -LiteralPath $exe) {
-    $isBili = (Test-Path -LiteralPath (Join-Path $cfg.Base 'BLPlatform64\PCGamePlatform.exe')) -or (Test-Path -LiteralPath (Join-Path $cfg.Base 'PCGameSDK.dll'))
-    $actual = if ($isBili) { 'Bilibili' } else { 'Official' }
+    $actual = Get-ActualChannel $cfg.Base
     Write-Host ('实际渠道 : {0}（按当前渠道文件判断）' -f $actual)
+    $marker = Get-BaseMarker $cfg.Base
+    if ($marker) { Write-Host ('基准标记 : Managed={0} 记录渠道={1}' -f $marker.Managed, $marker.Channel) }
   }
+  Write-Host ('配置位置 : {0}' -f $ConfigPath)
   Write-Host '===============================================' -ForegroundColor Cyan
   Write-Host ''
 }
@@ -412,6 +511,8 @@ catch {
   Write-Host ("错误: " + $_.Exception.Message) -ForegroundColor Red
   exit 1
 }
+
+
 
 
 
